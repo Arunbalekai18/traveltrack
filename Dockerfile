@@ -1,4 +1,4 @@
-# Use official PHP image with Apache
+# Use official PHP 8.2 image with Apache
 FROM php:8.2-apache
 
 # Install system dependencies and enable mysqli + SSL
@@ -8,11 +8,11 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install mysqli \
     && docker-php-ext-enable mysqli
 
-# Copy all files to Apache web directory
+# Copy project files into Apache web root
 COPY . /var/www/html/
 
-# Expose port for Render
+# Expose port 8080 for Render
 EXPOSE 8080
 
-# Start Apache
+# Start Apache server
 CMD ["apache2-foreground"]
