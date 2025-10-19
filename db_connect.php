@@ -2,7 +2,7 @@
 $host = "gateway01.ap-southeast-1.prod.aws.tidbcloud.com";
 $port = 4000;
 $user = "yhQSbqWsM4HhLAm.root";
-$pass = "RP7JZZZH2snJFp3j"; // Replace with your TiDB-generated password
+$pass = "LDPkODkng3WcLTkb"; // Replace with your TiDB-generated password
 $db   = "test";
 $ssl_ca = __DIR__ . "/ca.pem"; // SSL certificate path
 
