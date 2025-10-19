@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TravelTrack - Capture Trip</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 10px; max-width: 720px; margin:auto; }
+    button { padding: 12px 18px; margin: 6px 0; width:100%; font-size:16px; }
+    .card { border:1px solid #ddd; padding:12px; border-radius:8px; margin:8px 0; background:#fdfdfd; }
+    label { display:block; margin-top:8px; font-weight:600; }
+    input, select, textarea { width:100%; padding:8px; margin-top:6px; box-sizing:border-box; }
+    .small { font-size: 13px; color:#555; }
+    #preview { white-space:pre-wrap; word-break:break-word; background:#fff; padding:8px; border-radius:6px; border:1px dashed #ccc; }
+  </style>
+</head>
+<body>
+  <h2>TravelTrack — Capture Trip (PWA friendly)</h2>
+  <p class="small">Make sure to allow location access. This demo saves trips to the server.</p>
+
+  <div class="card">
+    <button id="startBtn">Start Trip (Capture Origin)</button>
+    <div id="originInfo" class="small"></div>
+  </div>
+
+  <div class="card">
+    <button id="endBtn">End Trip (Capture Destination)</button>
+    <div id="destInfo" class="small"></div>
+  </div>
+
+  <div class="card" id="formCard" style="display:none;">
+    <h3>Trip Details</h3>
+    <form id="tripForm">
+      <label>Trip Number (optional)</label>
+      <input type="number" name="trip_number" id="trip_number" placeholder="e.g., 1">
+
+      <label>Mode Used</label>
+      <select name="mode_used" id="mode_used" required>
+        <option value="">--Select--</option>
+        <option>Walk</option><option>Bicycle</option><option>Auto-rickshaw</option>
+        <option>Car</option><option>Bus</option><option>Train</option><option>Metro</option>
+        <option>Other</option>
+      </select>
+
+      <label>Trip Purpose</label>
+      <input type="text" name="trip_purpose" id="trip_purpose" placeholder="Work / School / Shopping / Other">
+
+      <label>Number of Companions</label>
+      <input type="number" name="companions" id="companions" min="0" value="0">
+
+      <label>Frequency</label>
+      <input type="text" name="frequency" id="frequency" placeholder="Daily / Weekly / Monthly / One-time">
+
+      <label>Cost (₹)</label>
+      <input type="number" name="cost" id="cost" step="0.01" placeholder="Amount">
+
+      <p class="small">Distance (km) will be computed automatically from origin and destination.</p>
+      <div id="preview"></div>
+
+      <button type="submit">Submit Trip</button>
+    </form>
+  </div>
+
+  <div style="margin-top:12px;">
+    <a href="view_trips.php">View Submitted Trips (Admin / NATPAC)</a>
+  </div>
+
+<script>
+  // Haversine formula (km)
+  function haversine(lat1, lon1, lat2, lon2) {
+    function toRad(deg) { return deg * Math.PI / 180; }
+    var R = 6371; // km
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  let origin = null, destination = null;
+
+  document.getElementById('startBtn').addEventListener('click', function(){
+    if(!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      origin = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        time: new Date().toISOString().slice(0,19).replace('T',' ')
+      };
+      document.getElementById('originInfo').innerText = "Origin captured: " + origin.lat.toFixed(6) + ", " + origin.lon.toFixed(6) + " at " + origin.time;
+      alert('Origin captured. Now go to your destination and press "End Trip".');
+    }, function(err){
+      alert('Error capturing origin: ' + err.message);
+    }, {enableHighAccuracy: true});
+  });
+
+  document.getElementById('endBtn').addEventListener('click', function(){
+    if(!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    if(!origin) { if(!confirm('Origin not captured. Continue to capture destination anyway?')) return; }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      destination = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        time: new Date().toISOString().slice(0,19).replace('T',' ')
+      };
+      document.getElementById('destInfo').innerText = "Destination captured: " + destination.lat.toFixed(6) + ", " + destination.lon.toFixed(6) + " at " + destination.time;
+      // compute distance if origin exists
+      let dist = origin ? haversine(origin.lat, origin.lon, destination.lat, destination.lon) : 0;
+      dist = Math.round(dist * 100)/100;
+      document.getElementById('preview').innerText = 
+        "Origin: " + (origin ? origin.lat.toFixed(6)+", "+origin.lon.toFixed(6)+" @ "+origin.time : "N/A") + "\n" +
+        "Destination: " + destination.lat.toFixed(6)+", "+destination.lon.toFixed(6)+" @ "+destination.time + "\n" +
+        "Computed distance (km): " + dist;
+      document.getElementById('formCard').style.display = 'block';
+
+      // store computed distance for form submission
+      document.getElementById('tripForm').dataset.distance = dist;
+      document.getElementById('tripForm').dataset.originLat = origin ? origin.lat : '';
+      document.getElementById('tripForm').dataset.originLon = origin ? origin.lon : '';
+      document.getElementById('tripForm').dataset.startTime = origin ? origin.time : '';
+      document.getElementById('tripForm').dataset.destLat = destination.lat;
+      document.getElementById('tripForm').dataset.destLon = destination.lon;
+      document.getElementById('tripForm').dataset.endTime = destination.time;
+    }, function(err){
+      alert('Error capturing destination: ' + err.message);
+    }, {enableHighAccuracy: true});
+  });
+
+  document.getElementById('tripForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const form = e.target;
+    const data = new URLSearchParams();
+    data.append('trip_number', document.getElementById('trip_number').value || '');
+    data.append('mode_used', document.getElementById('mode_used').value);
+    data.append('trip_purpose', document.getElementById('trip_purpose').value || '');
+    data.append('companions', document.getElementById('companions').value || 0);
+    data.append('frequency', document.getElementById('frequency').value || '');
+    data.append('cost', document.getElementById('cost').value || 0);
+    // add origin/destination and times and computed distance
+    data.append('origin_lat', form.dataset.originLat || '');
+    data.append('origin_lon', form.dataset.originLon || '');
+    data.append('start_time', form.dataset.startTime || '');
+    data.append('destination_lat', form.dataset.destLat || '');
+    data.append('destination_lon', form.dataset.destLon || '');
+    data.append('end_time', form.dataset.endTime || '');
+    data.append('travel_distance', form.dataset.distance || 0);
+
+    fetch('save_trip.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: data.toString()
+    })
+    .then(res => res.text())
+    .then(txt => {
+      alert(txt);
+      // clear form/state
+      origin = null; destination = null;
+      document.getElementById('originInfo').innerText = '';
+      document.getElementById('destInfo').innerText = '';
+      document.getElementById('formCard').style.display = 'none';
+      form.reset();
+    })
+    .catch(err => alert('Error submitting trip: ' + err));
+  });
+</script>
+</body>
+</html>
